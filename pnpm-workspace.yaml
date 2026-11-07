@@ -1,0 +1,8 @@
+allowBuilds:
+  esbuild: true
+  lightningcss: true
+  sharp: true
+  workerd: true
+
+minimumReleaseAgeExclude:
+  - brotli-wasm-2
