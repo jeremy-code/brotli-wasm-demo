@@ -12,7 +12,7 @@ import {
   Textarea,
   Title,
 } from "@mantine/core";
-import { createFileRoute } from "@tanstack/react-router";
+import { CatchBoundary, createFileRoute } from "@tanstack/react-router";
 import { createIsomorphicFn } from "@tanstack/react-start";
 import { brotliCompress, brotliDecompress } from "brotli-wasm-2";
 import { Suspense, use, useMemo, useState } from "react";
@@ -27,6 +27,25 @@ const getBaseUrl = createIsomorphicFn()
   .client(() => window.location.origin)
   .server(() => "https://brotli-wasm-demo.jeremynguyen.workers.dev");
 
+const CopyUrl = ({ base64Url }: { base64Url: string }) => {
+  return (
+    <CopyButton
+      value={`${new URL(
+        `?${new URLSearchParams({
+          q: base64Url,
+        })}`,
+        getBaseUrl(),
+      )}`}
+    >
+      {({ copied, copy }) => (
+        <Button color={copied ? "teal" : "blue"} onClick={copy}>
+          {copied ? "Copied url" : "Copy url"}
+        </Button>
+      )}
+    </CopyButton>
+  );
+};
+
 const CompressedData = ({
   input,
   fileName,
@@ -36,7 +55,7 @@ const CompressedData = ({
 }) => {
   const inputData = typeof input === "string" ? encodeUtf8(input) : use(input);
   const compressedOutput = useMemo(
-    () => brotliCompress(inputData),
+    () => brotliCompress(inputData) ?? new Uint8Array(),
     [inputData],
   );
   const base64Url = useMemo(
@@ -84,20 +103,14 @@ const CompressedData = ({
 
       <Stack gap="md">
         <Group>
-          <CopyButton
-            value={`${new URL(
-              `?${new URLSearchParams({
-                q: base64Url,
-              })}`,
-              getBaseUrl(),
-            )}`}
-          >
-            {({ copied, copy }) => (
-              <Button color={copied ? "teal" : "blue"} onClick={copy}>
-                {copied ? "Copied url" : "Copy url"}
-              </Button>
+          <CatchBoundary
+            getResetKey={() => base64Url}
+            errorComponent={() => (
+              <>An error occurred while constructing the URL</>
             )}
-          </CopyButton>
+          >
+            <CopyUrl base64Url={base64Url} />
+          </CatchBoundary>
           <Button
             variant="filled"
             color="dark"
@@ -206,7 +219,7 @@ const Route = createFileRoute("/")({
   loader: async ({ deps }) => {
     if (deps.q !== undefined) {
       return {
-        data: brotliDecompress(decodeBase64Url(deps.q)),
+        data: brotliDecompress(decodeBase64Url(deps.q)) ?? undefined,
       };
     }
     return {};
